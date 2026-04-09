@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import requests
-import json
+import os
 from datetime import datetime
 
 # ── Page config ────────────────────────────────────────────────────────────────
@@ -40,7 +40,7 @@ st.markdown("""
 # ── Google Sheets config ─────────────────────────────────────────────────────
 SHEET_ID = "1iHdvAKRga1IllXCpYjClJqJW76hTqTPFmd11QamyfLE"
 SHEETS_API = "https://sheets.googleapis.com/v4/spreadsheets"
-API_KEY = st.secrets.get("SHEETS_API_KEY", "")
+API_KEY = os.environ.get("SHEETS_API_KEY", "")
 
 MONTH_ORDER = ["Oct-14-2025", "Nov-19-2025", "Dec-15-2025", "Jan-14-2026", "Feb-16-2026", "March-26-2026"]
 
