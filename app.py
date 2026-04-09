@@ -196,7 +196,7 @@ with c1:
         margin=dict(t=20, b=20, l=10, r=10),
         height=340,
     )
-    st.plotly_chart(fig_pie, use_container_width=True)
+    st.plotly_chart(fig_pie, width='stretch')
 
 with c2:
     st.markdown("#### 📊 Category Breakdown")
@@ -221,7 +221,7 @@ with c2:
         margin=dict(t=20, b=20, l=10, r=60),
         height=340,
     )
-    st.plotly_chart(fig_bar, use_container_width=True)
+    st.plotly_chart(fig_bar, width='stretch')
 
 # ── Trend chart ──────────────────────────────────────────────────────────────
 st.markdown("#### 📈 Portfolio Growth (Month-over-Month)")
@@ -248,7 +248,7 @@ fig_trend.update_layout(
     margin=dict(t=20, b=40, l=10, r=20),
     height=300,
 )
-st.plotly_chart(fig_trend, use_container_width=True)
+st.plotly_chart(fig_trend, width='stretch')
 
 # ── Category detail table ────────────────────────────────────────────────────
 st.markdown("#### 📋 Detailed Breakdown")
@@ -265,7 +265,7 @@ for cat, val in sorted(latest_cats.items(), key=lambda x: -x[1]):
         "Allocation":  f"{alloc:.1f}%",
     })
 df_table = pd.DataFrame(rows_table)
-st.dataframe(df_table, use_container_width=True, hide_index=True)
+st.dataframe(df_table, width='stretch', hide_index=True)
 
 # ── Footer ───────────────────────────────────────────────────────────────────
 st.divider()
