@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: joby-portfolio
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python start.py
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false          # Set this manually in Render dashboard
+      - key: SHEETS_API_KEY
+        sync: false          # Set this manually in Render dashboard
+      - key: APP_URL
+        sync: false          # Set to your Render URL after first deploy
+    autoDeploy: true
