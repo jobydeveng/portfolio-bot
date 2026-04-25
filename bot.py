@@ -688,13 +688,23 @@ async def process_ai_query(update: Update, context: ContextTypes.DEFAULT_TYPE, t
 
 # ── Main ───────────────────────────────────────────────────────────────────────
 def main():
+    """Run bot in polling mode (for local development only)"""
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start",     start))
     app.add_handler(CommandHandler("portfolio", portfolio_command))
     app.add_handler(MessageHandler(filters.VOICE, handle_voice))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
-    logger.info("AI Portfolio Bot started.")
+    logger.info("AI Portfolio Bot started in polling mode.")
     app.run_polling()
+
+def setup_bot_handlers(app):
+    """Setup bot handlers (used by webhook mode)"""
+    app.add_handler(CommandHandler("start",     start))
+    app.add_handler(CommandHandler("portfolio", portfolio_command))
+    app.add_handler(MessageHandler(filters.VOICE, handle_voice))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
+    logger.info("AI Portfolio Bot handlers registered.")
+    return app
 
 if __name__ == "__main__":
     main()
