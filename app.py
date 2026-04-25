@@ -128,6 +128,12 @@ prev_tab   = available_sheets[-2] if len(available_sheets) >= 2 else None
 latest_rows = fetch_sheet(latest_tab)
 prev_rows   = fetch_sheet(prev_tab) if prev_tab else []
 
+# Debug: show what we fetched
+if not latest_rows:
+    st.error(f"⚠️ No data fetched from sheet '{latest_tab}'. Check API key and sheet permissions.")
+elif len(latest_rows) > 0 and all(len(row) < 7 for row in latest_rows):
+    st.warning(f"⚠️ Sheet '{latest_tab}' has fewer than 7 columns. Expected columns A-G.")
+
 latest_cats  = parse_categories(latest_rows)
 latest_total = parse_total(latest_rows)
 prev_total   = parse_total(prev_rows) if prev_rows else 0.0
@@ -174,54 +180,60 @@ c1, c2 = st.columns([1, 1])
 
 with c1:
     st.markdown("#### 🥧 Asset Allocation")
-    df_pie = pd.DataFrame([
-        {"Category": k, "Value": v} for k, v in latest_cats.items()
-    ])
-    colors = [CATEGORY_COLORS.get(c, "#888888") for c in df_pie["Category"]]
-    fig_pie = px.pie(
-        df_pie, values="Value", names="Category",
-        color_discrete_sequence=colors,
-        hole=0.45,
-    )
-    fig_pie.update_traces(
-        textposition="outside",
-        textinfo="label+percent",
-        hovertemplate="<b>%{label}</b><br>₹%{value:,.0f}<br>%{percent}<extra></extra>"
-    )
-    fig_pie.update_layout(
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        font_color="#e8f0fe",
-        showlegend=False,
-        margin=dict(t=20, b=20, l=10, r=10),
-        height=340,
-    )
-    st.plotly_chart(fig_pie, width='stretch')
+    if latest_cats:
+        df_pie = pd.DataFrame([
+            {"Category": k, "Value": v} for k, v in latest_cats.items()
+        ])
+        colors = [CATEGORY_COLORS.get(c, "#888888") for c in df_pie["Category"]]
+        fig_pie = px.pie(
+            df_pie, values="Value", names="Category",
+            color_discrete_sequence=colors,
+            hole=0.45,
+        )
+        fig_pie.update_traces(
+            textposition="outside",
+            textinfo="label+percent",
+            hovertemplate="<b>%{label}</b><br>₹%{value:,.0f}<br>%{percent}<extra></extra>"
+        )
+        fig_pie.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font_color="#e8f0fe",
+            showlegend=False,
+            margin=dict(t=20, b=20, l=10, r=10),
+            height=340,
+        )
+        st.plotly_chart(fig_pie, width='stretch')
+    else:
+        st.warning("No category data available to display.")
 
 with c2:
     st.markdown("#### 📊 Category Breakdown")
-    df_bar = pd.DataFrame([
-        {"Category": k, "Value": v / 1_00_000} for k, v in sorted(latest_cats.items(), key=lambda x: -x[1])
-    ])
-    colors_bar = [CATEGORY_COLORS.get(c, "#888888") for c in df_bar["Category"]]
-    fig_bar = go.Figure(go.Bar(
-        x=df_bar["Value"], y=df_bar["Category"],
-        orientation="h",
-        marker_color=colors_bar,
-        text=[f"₹{v:.2f}L" for v in df_bar["Value"]],
-        textposition="outside",
-        hovertemplate="<b>%{y}</b><br>₹%{x:.2f}L<extra></extra>",
-    ))
-    fig_bar.update_layout(
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        font_color="#e8f0fe",
-        xaxis=dict(title="Value (Lakhs ₹)", gridcolor="#1e3a5f", color="#8ab4d4"),
-        yaxis=dict(title="", color="#e8f0fe"),
-        margin=dict(t=20, b=20, l=10, r=60),
-        height=340,
-    )
-    st.plotly_chart(fig_bar, width='stretch')
+    if latest_cats:
+        df_bar = pd.DataFrame([
+            {"Category": k, "Value": v / 1_00_000} for k, v in sorted(latest_cats.items(), key=lambda x: -x[1])
+        ])
+        colors_bar = [CATEGORY_COLORS.get(c, "#888888") for c in df_bar["Category"]]
+        fig_bar = go.Figure(go.Bar(
+            x=df_bar["Value"], y=df_bar["Category"],
+            orientation="h",
+            marker_color=colors_bar,
+            text=[f"₹{v:.2f}L" for v in df_bar["Value"]],
+            textposition="outside",
+            hovertemplate="<b>%{y}</b><br>₹%{x:.2f}L<extra></extra>",
+        ))
+        fig_bar.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font_color="#e8f0fe",
+            xaxis=dict(title="Value (Lakhs ₹)", gridcolor="#1e3a5f", color="#8ab4d4"),
+            yaxis=dict(title="", color="#e8f0fe"),
+            margin=dict(t=20, b=20, l=10, r=60),
+            height=340,
+        )
+        st.plotly_chart(fig_bar, width='stretch')
+    else:
+        st.warning("No category data available to display.")
 
 # ── Trend chart ──────────────────────────────────────────────────────────────
 st.markdown("#### 📈 Portfolio Growth (Month-over-Month)")
@@ -252,20 +264,23 @@ st.plotly_chart(fig_trend, width='stretch')
 
 # ── Category detail table ────────────────────────────────────────────────────
 st.markdown("#### 📋 Detailed Breakdown")
-rows_table = []
-for cat, val in sorted(latest_cats.items(), key=lambda x: -x[1]):
-    prev_val = prev_cats.get(cat, val)
-    chg      = val - prev_val
-    pct      = (chg / prev_val * 100) if prev_val else 0
-    alloc    = (val / latest_total * 100) if latest_total else 0
-    rows_table.append({
-        "Category":    cat,
-        "Current":     fmt_inr(val),
-        "MoM Change":  f"{'▲' if chg >= 0 else '▼'} {fmt_inr(abs(chg))} ({pct:+.1f}%)",
-        "Allocation":  f"{alloc:.1f}%",
-    })
-df_table = pd.DataFrame(rows_table)
-st.dataframe(df_table, width='stretch', hide_index=True)
+if latest_cats:
+    rows_table = []
+    for cat, val in sorted(latest_cats.items(), key=lambda x: -x[1]):
+        prev_val = prev_cats.get(cat, val)
+        chg      = val - prev_val
+        pct      = (chg / prev_val * 100) if prev_val else 0
+        alloc    = (val / latest_total * 100) if latest_total else 0
+        rows_table.append({
+            "Category":    cat,
+            "Current":     fmt_inr(val),
+            "MoM Change":  f"{'▲' if chg >= 0 else '▼'} {fmt_inr(abs(chg))} ({pct:+.1f}%)",
+            "Allocation":  f"{alloc:.1f}%",
+        })
+    df_table = pd.DataFrame(rows_table)
+    st.dataframe(df_table, width='stretch', hide_index=True)
+else:
+    st.warning("No category data available to display.")
 
 # ── Footer ───────────────────────────────────────────────────────────────────
 st.divider()
