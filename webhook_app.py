@@ -111,19 +111,15 @@ if __name__ == "__main__":
     from threading import Thread
 
     # Start Streamlit on internal port
-    def run_streamlit():
-        logger.info(f"Starting Streamlit on internal port {STREAMLIT_PORT}...")
-        cmd = [
-            sys.executable, "-m", "streamlit", "run", "app.py",
-            "--server.port", str(STREAMLIT_PORT),
-            "--server.address", "localhost",
-            "--server.headless", "true",
-            "--browser.gatherUsageStats", "false",
-        ]
-        subprocess.run(cmd)
-
-    streamlit_thread = Thread(target=run_streamlit, daemon=True)
-    streamlit_thread.start()
+    logger.info(f"Starting Streamlit on internal port {STREAMLIT_PORT}...")
+    cmd = [
+        sys.executable, "-m", "streamlit", "run", "app.py",
+        "--server.port", str(STREAMLIT_PORT),
+        "--server.address", "localhost",
+        "--server.headless", "true",
+        "--browser.gatherUsageStats", "false",
+    ]
+    subprocess.Popen(cmd)
 
     # Setup Telegram webhook
     setup_telegram()
