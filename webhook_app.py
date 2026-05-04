@@ -121,6 +121,25 @@ if __name__ == "__main__":
     ]
     subprocess.Popen(cmd)
 
+    # Wait for Streamlit to initialize
+    import time
+    logger.info("Waiting for Streamlit to initialize...")
+    time.sleep(10)
+
+    # Verify Streamlit is responding
+    max_retries = 30
+    for i in range(max_retries):
+        try:
+            resp = requests.get(f"http://localhost:{STREAMLIT_PORT}/_stcore/health")
+            if resp.status_code == 200:
+                logger.info(f"Streamlit health check passed after {i+1} attempts")
+                break
+        except Exception:
+            if i < max_retries - 1:
+                time.sleep(1)
+            else:
+                logger.warning("Streamlit health check timed out, proceeding anyway")
+
     # Setup Telegram webhook
     setup_telegram()
 
