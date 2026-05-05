@@ -2,7 +2,11 @@
 enableCORS = false
 enableXsrfProtection = false
 headless = true
+baseUrlPath = ""
 
 [browser]
 gatherUsageStats = false
 serverAddress = "localhost"
+
+[client]
+showErrorDetails = true

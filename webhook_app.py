@@ -70,6 +70,26 @@ def health():
     return "OK", 200
 
 
+@app.route("/static/<path:filename>")
+def serve_static(filename):
+    """Direct proxy for static files to avoid routing issues"""
+    url = f"http://localhost:{STREAMLIT_PORT}/static/{filename}"
+    logger.info(f"Direct static file request: {url}")
+
+    try:
+        resp = requests.get(url, stream=True)
+
+        excluded_headers = ["content-encoding", "content-length", "transfer-encoding", "connection"]
+        headers = [(name, value) for name, value in resp.raw.headers.items()
+                   if name.lower() not in excluded_headers]
+
+        logger.info(f"Static file response: {resp.status_code} for {url}")
+        return Response(resp.iter_content(chunk_size=8192), resp.status_code, headers)
+    except Exception as e:
+        logger.error(f"Static file error for {url}: {e}")
+        return f"Static file error: {str(e)}", 404
+
+
 @app.route("/", defaults={"path": ""})
 @app.route("/<path:path>")
 def proxy_streamlit(path):
@@ -79,7 +99,9 @@ def proxy_streamlit(path):
     if query_string:
         url += f"?{query_string}"
 
-    logger.info(f"Proxying {request.method} {request.path} -> {url}")
+    # Log static file requests with more detail
+    if path.startswith('static/'):
+        logger.warning(f"Static file request: {request.method} {request.path} -> {url}")
 
     try:
         # Build headers, removing host to avoid conflicts
@@ -127,6 +149,8 @@ if __name__ == "__main__":
         "--browser.gatherUsageStats", "false",
         "--server.enableXsrfProtection", "false",
         "--server.enableCORS", "false",
+        "--server.fileWatcherType", "none",
+        "--server.baseUrlPath", "",
     ]
 
     # Capture output for debugging
