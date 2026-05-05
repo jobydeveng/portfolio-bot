@@ -119,7 +119,22 @@ if __name__ == "__main__":
         "--server.headless", "true",
         "--browser.gatherUsageStats", "false",
     ]
-    subprocess.Popen(cmd)
+
+    # Capture output for debugging
+    streamlit_process = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        universal_newlines=True
+    )
+    logger.info(f"Streamlit process started with PID: {streamlit_process.pid}")
+
+    # Log Streamlit output in background
+    def log_streamlit_output():
+        for line in streamlit_process.stdout:
+            logger.info(f"[Streamlit] {line.rstrip()}")
+
+    Thread(target=log_streamlit_output, daemon=True).start()
 
     # Wait for Streamlit to initialize
     import time
