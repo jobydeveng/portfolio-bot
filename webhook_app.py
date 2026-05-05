@@ -82,26 +82,30 @@ def proxy_streamlit(path):
     logger.info(f"Proxying {request.method} {request.path} -> {url}")
 
     try:
+        # Build headers, removing host to avoid conflicts
+        headers = {k: v for k, v in dict(request.headers).items() if k.lower() != 'host'}
+
         if request.method == "GET":
-            resp = requests.get(url, headers=dict(request.headers), stream=True)
+            resp = requests.get(url, headers=headers, stream=True, allow_redirects=True)
         elif request.method == "POST":
-            resp = requests.post(url, headers=dict(request.headers), data=request.data, stream=True)
+            resp = requests.post(url, headers=headers, data=request.data, stream=True, allow_redirects=True)
         else:
             resp = requests.request(
                 method=request.method,
                 url=url,
-                headers=dict(request.headers),
+                headers=headers,
                 data=request.data,
-                stream=True
+                stream=True,
+                allow_redirects=True
             )
 
         # Forward response
-        excluded_headers = ["content-encoding", "content-length", "transfer-encoding", "connection"]
-        headers = [(name, value) for name, value in resp.raw.headers.items()
-                   if name.lower() not in excluded_headers]
+        excluded_headers = ["content-encoding", "content-length", "transfer-encoding", "connection", "host"]
+        response_headers = [(name, value) for name, value in resp.raw.headers.items()
+                           if name.lower() not in excluded_headers]
 
         logger.info(f"Response: {resp.status_code} for {url}")
-        return Response(resp.iter_content(chunk_size=8192), resp.status_code, headers)
+        return Response(resp.iter_content(chunk_size=8192), resp.status_code, response_headers)
 
     except Exception as e:
         logger.error(f"Proxy error for {url}: {e}")
