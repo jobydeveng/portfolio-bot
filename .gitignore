@@ -1,2 +1,4 @@
 CLAUDE.md
 instructions.txt
+setup_env.ps1
+.streamlit/secrets.toml

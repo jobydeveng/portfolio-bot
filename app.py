@@ -278,7 +278,7 @@ if latest_cats:
             "Allocation":  f"{alloc:.1f}%",
         })
     df_table = pd.DataFrame(rows_table)
-    st.dataframe(df_table, width='stretch', hide_index=True)
+    st.dataframe(df_table, use_container_width=True, hide_index=True)
 else:
     st.warning("No category data available to display.")
 

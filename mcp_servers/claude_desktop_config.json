@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "portfolio-sheets": {
+      "command": "python",
+      "args": ["d:/portfolio-bot/mcp_servers/google_sheets_server/server.py"],
+      "env": {
+        "SHEET_ID": "1iHdvAKRga1IllXCpYjClJqJW76hTqTPFmd11QamyfLE",
+        "SHEETS_API_KEY": "your-api-key-here"
+      }
+    },
+    "market-data": {
+      "command": "python",
+      "args": ["d:/portfolio-bot/mcp_servers/market_data_server/server.py"]
+    },
+    "portfolio-context": {
+      "command": "python",
+      "args": ["d:/portfolio-bot/mcp_servers/portfolio_context_server/server.py"]
+    }
+  }
+}
