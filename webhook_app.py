@@ -79,6 +79,8 @@ def proxy_streamlit(path):
     if query_string:
         url += f"?{query_string}"
 
+    logger.info(f"Proxying {request.method} {request.path} -> {url}")
+
     try:
         if request.method == "GET":
             resp = requests.get(url, headers=dict(request.headers), stream=True)
@@ -98,10 +100,11 @@ def proxy_streamlit(path):
         headers = [(name, value) for name, value in resp.raw.headers.items()
                    if name.lower() not in excluded_headers]
 
+        logger.info(f"Response: {resp.status_code} for {url}")
         return Response(resp.iter_content(chunk_size=8192), resp.status_code, headers)
 
     except Exception as e:
-        logger.error(f"Proxy error: {e}")
+        logger.error(f"Proxy error for {url}: {e}")
         return f"Streamlit proxy error: {str(e)}", 502
 
 
