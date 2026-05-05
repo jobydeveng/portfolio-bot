@@ -121,6 +121,8 @@ if __name__ == "__main__":
         "--server.address", "localhost",
         "--server.headless", "true",
         "--browser.gatherUsageStats", "false",
+        "--server.enableXsrfProtection", "false",
+        "--server.enableCORS", "false",
     ]
 
     # Capture output for debugging
