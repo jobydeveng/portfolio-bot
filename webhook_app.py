@@ -97,15 +97,18 @@ def streamlit_websocket(ws):
     """WebSocket proxy for Streamlit real-time communication"""
     from simple_websocket import Client as WSClient
     import threading
-    import queue
 
-    logger.info("[WEBSOCKET] Client connected to /_stcore/stream")
+    # Get query parameters from the client request
+    query_string = request.query_string.decode()
+    logger.info(f"[WEBSOCKET] Client connected to /_stcore/stream with params: {query_string}")
 
     streamlit_ws = None
     streamlit_ws_url = f"ws://localhost:{STREAMLIT_PORT}/_stcore/stream"
+    if query_string:
+        streamlit_ws_url += f"?{query_string}"
 
     try:
-        # Create WebSocket connection to Streamlit
+        # Create WebSocket connection to Streamlit with query params
         streamlit_ws = WSClient.connect(streamlit_ws_url)
         logger.info(f"[WEBSOCKET] Connected to Streamlit at {streamlit_ws_url}")
 
