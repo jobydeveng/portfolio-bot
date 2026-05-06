@@ -70,23 +70,67 @@ def health():
     return "OK", 200
 
 
-@app.route("/static/<path:filename>")
-def serve_static(filename):
-    """Direct proxy for static files to avoid routing issues"""
-    url = f"http://localhost:{STREAMLIT_PORT}/static/{filename}"
-    logger.info(f"Direct static file request: {url}")
+@app.route("/debug-streamlit", methods=["GET"])
+def debug_streamlit():
+    """Debug endpoint to check Streamlit connectivity"""
+    results = {}
+    try:
+        # Test health endpoint
+        health_resp = requests.get(f"http://localhost:{STREAMLIT_PORT}/_stcore/health", timeout=3)
+        results['health'] = health_resp.status_code
+
+        # Test root page
+        root_resp = requests.get(f"http://localhost:{STREAMLIT_PORT}/", timeout=3)
+        results['root_page'] = root_resp.status_code
+
+        results['message'] = "Streamlit is responding"
+    except Exception as e:
+        results['error'] = str(e)
+
+    return results, 200
+
+
+@app.route("/static/media/<path:filename>")
+@app.route("/static/css/<path:filename>")
+@app.route("/static/js/<path:filename>")
+def serve_specific_static(filename):
+    """Specific static file routes for media, css, and js"""
+    # Extract the subdirectory from the matched route
+    subdir = request.path.split('/')[2]  # 'media', 'css', or 'js'
+    url = f"http://localhost:{STREAMLIT_PORT}/static/{subdir}/{filename}"
+    logger.info(f"[STATIC-SPECIFIC-{subdir.upper()}] Request: {url}")
 
     try:
-        resp = requests.get(url, stream=True)
+        resp = requests.get(url, stream=True, timeout=10)
 
         excluded_headers = ["content-encoding", "content-length", "transfer-encoding", "connection"]
         headers = [(name, value) for name, value in resp.raw.headers.items()
                    if name.lower() not in excluded_headers]
 
-        logger.info(f"Static file response: {resp.status_code} for {url}")
+        logger.info(f"[STATIC-SPECIFIC-{subdir.upper()}] Response: {resp.status_code} for {url}")
         return Response(resp.iter_content(chunk_size=8192), resp.status_code, headers)
     except Exception as e:
-        logger.error(f"Static file error for {url}: {e}")
+        logger.error(f"[STATIC-SPECIFIC-{subdir.upper()}] Error for {url}: {e}")
+        return f"Static file error: {str(e)}", 404
+
+
+@app.route("/static/<path:filename>")
+def serve_static(filename):
+    """Direct proxy for static files to avoid routing issues"""
+    url = f"http://localhost:{STREAMLIT_PORT}/static/{filename}"
+    logger.info(f"[STATIC-GENERIC] Request: {url}")
+
+    try:
+        resp = requests.get(url, stream=True, timeout=10)
+
+        excluded_headers = ["content-encoding", "content-length", "transfer-encoding", "connection"]
+        headers = [(name, value) for name, value in resp.raw.headers.items()
+                   if name.lower() not in excluded_headers]
+
+        logger.info(f"[STATIC-GENERIC] Response: {resp.status_code} for {url}")
+        return Response(resp.iter_content(chunk_size=8192), resp.status_code, headers)
+    except Exception as e:
+        logger.error(f"[STATIC-GENERIC] Error for {url}: {e}")
         return f"Static file error: {str(e)}", 404
 
 
@@ -101,7 +145,7 @@ def proxy_streamlit(path):
 
     # Log static file requests with more detail
     if path.startswith('static/'):
-        logger.warning(f"Static file request: {request.method} {request.path} -> {url}")
+        logger.warning(f"[CATCH-ALL] Static file request: {request.method} {request.path} -> {url}")
 
     try:
         # Build headers, removing host to avoid conflicts
@@ -126,11 +170,18 @@ def proxy_streamlit(path):
         response_headers = [(name, value) for name, value in resp.raw.headers.items()
                            if name.lower() not in excluded_headers]
 
-        logger.info(f"Response: {resp.status_code} for {url}")
+        # Log route handler for debugging
+        route_label = "[CATCH-ALL]"
+        logger.info(f"{route_label} Response: {resp.status_code} for {url}")
+
+        # Log 404s with more detail
+        if resp.status_code == 404 and path.startswith('static/'):
+            logger.error(f"{route_label} 404 for static file: {path}")
+
         return Response(resp.iter_content(chunk_size=8192), resp.status_code, response_headers)
 
     except Exception as e:
-        logger.error(f"Proxy error for {url}: {e}")
+        logger.error(f"[CATCH-ALL] Proxy error for {url}: {e}")
         return f"Streamlit proxy error: {str(e)}", 502
 
 
@@ -172,19 +223,27 @@ if __name__ == "__main__":
     # Wait for Streamlit to initialize
     import time
     logger.info("Waiting for Streamlit to initialize...")
-    time.sleep(10)
+    time.sleep(5)
 
     # Verify Streamlit is responding
     max_retries = 30
     for i in range(max_retries):
         try:
-            resp = requests.get(f"http://localhost:{STREAMLIT_PORT}/_stcore/health")
+            resp = requests.get(f"http://localhost:{STREAMLIT_PORT}/_stcore/health", timeout=3)
             if resp.status_code == 200:
                 logger.info(f"Streamlit health check passed after {i+1} attempts")
+
+                # Test a static file request
+                try:
+                    static_test = requests.get(f"http://localhost:{STREAMLIT_PORT}/", timeout=3)
+                    logger.info(f"Streamlit root page status: {static_test.status_code}")
+                except Exception as e:
+                    logger.warning(f"Streamlit root page test failed: {e}")
+
                 break
         except Exception:
             if i < max_retries - 1:
-                time.sleep(1)
+                time.sleep(2)
             else:
                 logger.warning("Streamlit health check timed out, proceeding anyway")
 
