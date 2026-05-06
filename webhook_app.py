@@ -12,7 +12,6 @@ import requests
 from telegram import Update
 from telegram.ext import ApplicationBuilder
 from flask_sock import Sock
-import websocket
 import bot
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
