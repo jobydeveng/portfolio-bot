@@ -11,6 +11,8 @@ from flask import Flask, request, Response
 import requests
 from telegram import Update
 from telegram.ext import ApplicationBuilder
+from flask_sock import Sock
+import websocket
 import bot
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -23,6 +25,7 @@ WEBHOOK_URL = os.environ.get("APP_URL", "https://joby-portfolio.onrender.com")
 BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 
 app = Flask(__name__)
+sock = Sock(app)
 
 # Telegram bot application
 telegram_app = None
@@ -88,6 +91,49 @@ def debug_streamlit():
         results['error'] = str(e)
 
     return results, 200
+
+
+@sock.route('/_stcore/stream')
+def streamlit_websocket(ws):
+    """WebSocket proxy for Streamlit real-time communication"""
+    logger.info("[WEBSOCKET] Client connected to /_stcore/stream")
+
+    # Connect to Streamlit's WebSocket
+    streamlit_ws_url = f"ws://localhost:{STREAMLIT_PORT}/_stcore/stream"
+
+    try:
+        # Create WebSocket connection to Streamlit
+        streamlit_ws = websocket.create_connection(streamlit_ws_url)
+        logger.info(f"[WEBSOCKET] Connected to Streamlit at {streamlit_ws_url}")
+
+        # Bidirectional proxy: forward messages between client and Streamlit
+        import threading
+
+        def forward_to_client():
+            """Forward messages from Streamlit to client"""
+            try:
+                while True:
+                    data = streamlit_ws.recv()
+                    if data:
+                        ws.send(data)
+            except Exception as e:
+                logger.error(f"[WEBSOCKET] Error forwarding to client: {e}")
+
+        # Start thread to forward Streamlit -> Client
+        threading.Thread(target=forward_to_client, daemon=True).start()
+
+        # Forward Client -> Streamlit in main thread
+        while True:
+            data = ws.receive()
+            if data:
+                streamlit_ws.send(data)
+
+    except Exception as e:
+        logger.error(f"[WEBSOCKET] Error: {e}")
+    finally:
+        logger.info("[WEBSOCKET] Client disconnected")
+        if streamlit_ws:
+            streamlit_ws.close()
 
 
 @app.route("/static/media/<path:filename>")
