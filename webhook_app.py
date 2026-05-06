@@ -96,44 +96,63 @@ def debug_streamlit():
 @sock.route('/_stcore/stream')
 def streamlit_websocket(ws):
     """WebSocket proxy for Streamlit real-time communication"""
+    from simple_websocket import Client as WSClient
+    import threading
+    import queue
+
     logger.info("[WEBSOCKET] Client connected to /_stcore/stream")
 
-    # Connect to Streamlit's WebSocket
+    streamlit_ws = None
     streamlit_ws_url = f"ws://localhost:{STREAMLIT_PORT}/_stcore/stream"
 
     try:
         # Create WebSocket connection to Streamlit
-        streamlit_ws = websocket.create_connection(streamlit_ws_url)
+        streamlit_ws = WSClient.connect(streamlit_ws_url)
         logger.info(f"[WEBSOCKET] Connected to Streamlit at {streamlit_ws_url}")
 
-        # Bidirectional proxy: forward messages between client and Streamlit
-        import threading
+        # Queue for thread-safe communication
+        running = threading.Event()
+        running.set()
 
-        def forward_to_client():
+        def forward_from_streamlit():
             """Forward messages from Streamlit to client"""
             try:
-                while True:
-                    data = streamlit_ws.recv()
-                    if data:
-                        ws.send(data)
+                while running.is_set():
+                    try:
+                        data = streamlit_ws.receive(timeout=1)
+                        if data:
+                            ws.send(data)
+                    except TimeoutError:
+                        continue
             except Exception as e:
-                logger.error(f"[WEBSOCKET] Error forwarding to client: {e}")
+                logger.error(f"[WEBSOCKET] Error forwarding from Streamlit: {e}")
+            finally:
+                running.clear()
 
-        # Start thread to forward Streamlit -> Client
-        threading.Thread(target=forward_to_client, daemon=True).start()
+        # Start forwarding thread
+        forward_thread = threading.Thread(target=forward_from_streamlit, daemon=True)
+        forward_thread.start()
 
-        # Forward Client -> Streamlit in main thread
-        while True:
-            data = ws.receive()
-            if data:
-                streamlit_ws.send(data)
+        # Forward messages from client to Streamlit
+        while running.is_set():
+            try:
+                data = ws.receive(timeout=1)
+                if data:
+                    streamlit_ws.send(data)
+            except TimeoutError:
+                continue
+            except Exception:
+                break
 
     except Exception as e:
-        logger.error(f"[WEBSOCKET] Error: {e}")
+        logger.error(f"[WEBSOCKET] Connection error: {e}", exc_info=True)
     finally:
-        logger.info("[WEBSOCKET] Client disconnected")
+        logger.info("[WEBSOCKET] Cleaning up connection")
         if streamlit_ws:
-            streamlit_ws.close()
+            try:
+                streamlit_ws.close()
+            except:
+                pass
 
 
 @app.route("/static/media/<path:filename>")
